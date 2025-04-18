@@ -1,18 +1,64 @@
 import React, { useState } from 'react';
-import { BeakerIcon, ArrowRightIcon, RefreshCwIcon } from 'lucide-react';
+import { BeakerIcon, ArrowRightIcon, RefreshCwIcon, InfoIcon } from 'lucide-react';
+import { getOxidationStates, getSolubility } from './periodicTable';
+import { getReactionType, analyzeCompound } from './chemistryUtils';
 
 // База данных известных реакций
 const knownReactions = new Map([
+  // Реакции с водородом
   ['H2 + O2', '2H2O'],
-  ['Fe + O2', '2Fe2O3'],
-  ['CH4 + O2', 'CO2 + 2H2O'],
-  ['2Na + 2H2O', '2NaOH + H2'],
-  ['CaCO3', 'CaO + CO2'],
   ['H2 + Cl2', '2HCl'],
-  ['Fe + CuSO4', 'FeSO4 + Cu'],
-  ['NaOH + HCl', 'NaCl + H2O'],
+  ['H2 + Br2', '2HBr'],
+  ['H2 + I2', '2HI'],
+  ['H2 + N2', '2NH3'],
+  ['H2 + S', 'H2S'],
+
+  // Реакции с кислородом
+  ['Fe + O2', '2Fe2O3'],
+  ['2Cu + O2', '2CuO'],
+  ['4Al + 3O2', '2Al2O3'],
+  ['CH4 + 2O2', 'CO2 + 2H2O'],
+  ['C2H5OH + 3O2', '2CO2 + 3H2O'],
+  ['4P + 5O2', '2P2O5'],
+  ['S + O2', 'SO2'],
+  ['2SO2 + O2', '2SO3'],
+  ['4NH3 + 5O2', '4NO + 6H2O'],
+
+  // Реакции с водой
+  ['2Na + 2H2O', '2NaOH + H2'],
   ['Ca + 2H2O', 'Ca(OH)2 + H2'],
-  ['Zn + 2HCl', 'ZnCl2 + H2']
+  ['K + H2O', 'KOH + H2'],
+  ['CaO + H2O', 'Ca(OH)2'],
+  ['SO3 + H2O', 'H2SO4'],
+  ['CO2 + H2O', 'H2CO3'],
+  ['P2O5 + 3H2O', '2H3PO4'],
+
+  // Реакции с кислотами
+  ['Fe + 2HCl', 'FeCl2 + H2'],
+  ['Zn + 2HCl', 'ZnCl2 + H2'],
+  ['Mg + H2SO4', 'MgSO4 + H2'],
+  ['2Al + 6HCl', '2AlCl3 + 3H2'],
+  ['Fe + CuSO4', 'FeSO4 + Cu'],
+  ['Zn + CuSO4', 'ZnSO4 + Cu'],
+
+  // Реакции нейтрализации
+  ['NaOH + HCl', 'NaCl + H2O'],
+  ['KOH + HNO3', 'KNO3 + H2O'],
+  ['Ca(OH)2 + 2HCl', 'CaCl2 + 2H2O'],
+  ['2NaOH + H2SO4', 'Na2SO4 + 2H2O'],
+
+  // Реакции разложения
+  ['CaCO3', 'CaO + CO2'],
+  ['2KClO3', '2KCl + 3O2'],
+  ['2H2O2', '2H2O + O2'],
+  ['2NaNO3', '2NaNO2 + O2'],
+  ['2KMnO4', 'K2MnO4 + MnO2 + O2'],
+
+  // Реакции обмена
+  ['AgNO3 + NaCl', 'AgCl + NaNO3'],
+  ['BaCl2 + Na2SO4', 'BaSO4 + 2NaCl'],
+  ['Pb(NO3)2 + 2KI', 'PbI2 + 2KNO3'],
+  ['CaCl2 + Na2CO3', 'CaCO3 + 2NaCl']
 ]);
 
 // Функция для нормализации уравнения
@@ -37,32 +83,54 @@ function findProducts(reactants: string): string | null {
   return null;
 }
 
-// Parse a chemical formula into an object with atom counts
+// Разбор химической формулы на атомы и их количество
 function parseFormula(formula: string): Record<string, number> {
   const atoms: Record<string, number> = {};
-  const parts = formula.match(/([A-Z][a-z]?\d*)|(\d+)/g) || [];
-  let coefficient = 1;
+  let currentElement = '';
+  let currentNumber = '';
+  let coefficient = '';
   
-  // Check if the formula starts with a number (coefficient)
-  if (/^\d+/.test(formula)) {
-    coefficient = parseInt(parts[0]);
-    parts.shift();
+  // Получаем коэффициент в начале формулы
+  let i = 0;
+  while (i < formula.length && /\d/.test(formula[i])) {
+    coefficient += formula[i];
+    i++;
+  }
+  const coef = coefficient ? parseInt(coefficient) : 1;
+  
+  // Разбор остальной части формулы
+  while (i < formula.length) {
+    if (formula[i] === '(' || formula[i] === ')') {
+      i++;
+      continue;
+    }
+    
+    if (/[A-Z]/.test(formula[i])) {
+      if (currentElement) {
+        const num = currentNumber || '1';
+        atoms[currentElement] = (atoms[currentElement] || 0) + parseInt(num) * coef;
+        currentNumber = '';
+      }
+      currentElement = formula[i];
+      if (i + 1 < formula.length && /[a-z]/.test(formula[i + 1])) {
+        currentElement += formula[i + 1];
+        i++;
+      }
+    } else if (/\d/.test(formula[i])) {
+      currentNumber += formula[i];
+    }
+    i++;
   }
   
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (/^[A-Z]/.test(part)) {
-      const element = part.match(/[A-Z][a-z]?/)?.[0] || '';
-      const number = part.match(/\d+$/)?.[0];
-      const count = (number ? parseInt(number) : 1) * coefficient;
-      atoms[element] = (atoms[element] || 0) + count;
-    }
+  if (currentElement) {
+    const num = currentNumber || '1';
+    atoms[currentElement] = (atoms[currentElement] || 0) + parseInt(num) * coef;
   }
   
   return atoms;
 }
 
-// Count atoms in a compound list
+// Подсчет атомов в списке соединений
 function countAtoms(compounds: string): Record<string, number> {
   const atoms: Record<string, number> = {};
   const moleculeList = compounds.split('+').map(m => m.trim());
@@ -77,7 +145,7 @@ function countAtoms(compounds: string): Record<string, number> {
   return atoms;
 }
 
-// Check if atoms are balanced
+// Проверка баланса атомов
 function areAtomsBalanced(reactants: string, products: string): boolean {
   const reactantAtoms = countAtoms(reactants);
   const productAtoms = countAtoms(products);
@@ -96,27 +164,36 @@ function areAtomsBalanced(reactants: string, products: string): boolean {
   return true;
 }
 
-// Balance chemical equations
+// Балансировка химического уравнения
 function balanceEquation(equation: string): string {
   try {
     const [reactants, products] = equation.split(/->|=/).map(side => side.trim());
     const reactantsList = reactants.split('+').map(r => r.trim());
     const productsList = products.split('+').map(p => p.trim());
     
-    // Проверяем, сбалансировано ли уравнение изначально
+    // Проверяем исходное уравнение
     if (areAtomsBalanced(reactants, products)) {
       return `${reactants} → ${products}`;
     }
     
-    // Пытаемся найти коэффициенты для балансировки
+    // Перебираем коэффициенты
     for (let a = 1; a <= 10; a++) {
       for (let b = 1; b <= 10; b++) {
         for (let c = 1; c <= 10; c++) {
           for (let d = 1; d <= 10; d++) {
-            const balancedReactants = reactantsList.map((r, i) => 
-              `${i === 0 ? a : b}${r}`).join(' + ');
-            const balancedProducts = productsList.map((p, i) => 
-              `${i === 0 ? c : d}${p}`).join(' + ');
+            let balancedReactants = '';
+            let balancedProducts = '';
+            
+            // Формируем уравнение с коэффициентами
+            reactantsList.forEach((r, i) => {
+              if (i > 0) balancedReactants += ' + ';
+              balancedReactants += `${i === 0 ? (a === 1 ? '' : a) : (b === 1 ? '' : b)}${r}`;
+            });
+            
+            productsList.forEach((p, i) => {
+              if (i > 0) balancedProducts += ' + ';
+              balancedProducts += `${i === 0 ? (c === 1 ? '' : c) : (d === 1 ? '' : d)}${p}`;
+            });
             
             if (areAtomsBalanced(balancedReactants, balancedProducts)) {
               return `${balancedReactants} → ${balancedProducts}`;
@@ -133,16 +210,52 @@ function balanceEquation(equation: string): string {
   }
 }
 
+// Анализ реакции
+function analyzeReaction(equation: string): string {
+  try {
+    const [reactants, products] = equation.split(/->|=/).map(side => side.trim());
+    const reactantsList = reactants.split('+').map(r => r.trim());
+    const productsList = products.split('+').map(p => p.trim());
+
+    const reactionType = getReactionType(reactantsList, productsList);
+    
+    let analysis = `Тип реакции: ${reactionType}\n\n`;
+    analysis += 'Анализ реагентов:\n';
+    
+    reactantsList.forEach(reactant => {
+      const elements = reactant.match(/[A-Z][a-z]?/g) || [];
+      elements.forEach(element => {
+        const oxidationStates = getOxidationStates(element);
+        const solubility = getSolubility(element);
+        analysis += `${element}: Степени окисления [${oxidationStates.join(', ')}], ${solubility}\n`;
+      });
+      
+      if (elements.length > 1) {
+        analysis += `Тип связи в ${reactant}: ${analyzeCompound(reactant)}\n`;
+      }
+    });
+
+    return analysis;
+  } catch (error) {
+    console.error('Error in analyzeReaction:', error);
+    return "Ошибка при анализе реакции";
+  }
+}
+
 function App() {
   const [equation, setEquation] = useState('');
+  const [catalyst, setCatalyst] = useState('');
   const [result, setResult] = useState('');
+  const [analysis, setAnalysis] = useState('');
   const [error, setError] = useState('');
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const handleSolve = () => {
     try {
       if (!equation.trim()) {
         setError('Пожалуйста, введите химическое уравнение');
         setResult('');
+        setAnalysis('');
         return;
       }
 
@@ -158,13 +271,19 @@ function App() {
           if (balancedEquation.includes("Не удалось") || balancedEquation.includes("Ошибка")) {
             setError(balancedEquation);
             setResult('');
+            setAnalysis('');
           } else {
-            setResult(balancedEquation);
+            const finalEquation = catalyst 
+              ? balancedEquation.replace('→', `(${catalyst})→`) 
+              : balancedEquation;
+            setResult(finalEquation);
+            setAnalysis(analyzeReaction(balancedEquation));
             setError('');
           }
         } else {
           setError('Извините, я не знаю продукты этой реакции. Пожалуйста, введите полное уравнение.');
           setResult('');
+          setAnalysis('');
         }
       } else {
         // Если уравнение полное, просто балансируем его
@@ -173,8 +292,13 @@ function App() {
         if (balancedEquation.includes("Не удалось") || balancedEquation.includes("Ошибка")) {
           setError(balancedEquation);
           setResult('');
+          setAnalysis('');
         } else {
-          setResult(balancedEquation);
+          const finalEquation = catalyst 
+            ? balancedEquation.replace('→', `(${catalyst})→`) 
+            : balancedEquation;
+          setResult(finalEquation);
+          setAnalysis(analyzeReaction(balancedEquation));
           setError('');
         }
       }
@@ -182,13 +306,17 @@ function App() {
       console.error('Error in handleSolve:', err);
       setError('Ошибка в уравнении. Проверьте правильность написания.');
       setResult('');
+      setAnalysis('');
     }
   };
 
   const handleClear = () => {
     setEquation('');
+    setCatalyst('');
     setResult('');
+    setAnalysis('');
     setError('');
+    setShowAnalysis(false);
   };
 
   return (
@@ -215,7 +343,7 @@ function App() {
               >
                 Химическое уравнение или реагенты
               </label>
-              <div className="flex gap-4">
+              <div className="flex gap-4 mb-4">
                 <input
                   type="text"
                   id="equation"
@@ -237,6 +365,22 @@ function App() {
                   <RefreshCwIcon className="h-6 w-6" />
                 </button>
               </div>
+              <div className="mt-4">
+                <label
+                  htmlFor="catalyst"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Катализатор (необязательно)
+                </label>
+                <input
+                  type="text"
+                  id="catalyst"
+                  value={catalyst}
+                  onChange={(e) => setCatalyst(e.target.value)}
+                  placeholder="Например: Pt или t°"
+                  className="block w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
             </div>
 
             {(result || error) && (
@@ -244,8 +388,27 @@ function App() {
                 {error ? (
                   <p className="text-red-600">{error}</p>
                 ) : (
-                  <div className="flex items-center gap-4 justify-center">
-                    <div className="text-lg font-medium text-gray-900">{result}</div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 justify-center">
+                      <div className="text-lg font-medium text-gray-900">{result}</div>
+                    </div>
+                    {analysis && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => setShowAnalysis(!showAnalysis)}
+                          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700"
+                        >
+                          <InfoIcon className="h-5 w-5" />
+                          {showAnalysis ? 'Скрыть анализ' : 'Показать анализ'}
+                        </button>
+                        {showAnalysis && (
+                          <pre className="mt-2 p-4 bg-gray-100 rounded-lg text-sm whitespace-pre-wrap">
+                            {analysis}
+                          </pre>
+                        
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -273,6 +436,12 @@ function App() {
                 <ArrowRightIcon className="h-6 w-6 text-indigo-600 flex-shrink-0" />
                 <span>
                   Разделяйте соединения знаком +
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <ArrowRightIcon className="h-6 w-6 text-indigo-600 flex-shrink-0" />
+                <span>
+                  При необходимости укажите катализатор (например: Pt или t°)
                 </span>
               </li>
             </ul>
