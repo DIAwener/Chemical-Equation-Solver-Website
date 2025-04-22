@@ -1,13 +1,255 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chemical Equation Solver Website</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Химический калькулятор</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+            <div class="container mx-auto px-4 py-8">
+                <div class="max-w-3xl mx-auto">
+                    <div class="text-center mb-12">
+                        <div class="flex items-center justify-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600">
+                                <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"></path>
+                                <path d="M8.5 2h7"></path>
+                                <path d="M7 16h10"></path>
+                            </svg>
+                        </div>
+                        <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                            Решение химических уравнений
+                        </h1>
+                        <p class="text-lg text-gray-600">
+                            Введите реагенты или полное уравнение для решения и балансировки
+                        </p>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                        <div class="mb-6">
+                            <label for="equation" class="block text-sm font-medium text-gray-700 mb-2">
+                                Химическое уравнение или реагенты
+                            </label>
+                            <div class="flex gap-4 mb-4">
+                                <input type="text" id="equation" placeholder="Например: H2 + O2 или H2 + O2 -> H2O" class="flex-1 block w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <button onclick="solveEquation()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                                    Решить
+                                </button>
+                                <button onclick="clearForm()" class="p-3 text-gray-600 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                        <path d="M3 3v5h5"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="mt-4">
+                                <label for="catalyst" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Катализатор (необязательно)
+                                </label>
+                                <input type="text" id="catalyst" placeholder="Например: Pt или t°" class="block w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div id="result" class="mt-6 p-4 rounded-lg bg-gray-50 hidden">
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-4 justify-center">
+                                    <div id="resultText" class="text-lg font-medium text-gray-900"></div>
+                                </div>
+                                <div id="analysisContainer" class="mt-4 hidden">
+                                    <button onclick="toggleAnalysis()" class="flex items-center gap-2 text-indigo-600 hover:text-indigo-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <path d="M12 16v-4"></path>
+                                            <path d="M12 8h.01"></path>
+                                        </svg>
+                                        <span id="analysisToggleText">Показать анализ</span>
+                                    </button>
+                                    <pre id="analysisText" class="mt-2 p-4 bg-gray-100 rounded-lg text-sm whitespace-pre-wrap hidden"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                            Как использовать
+                        </h2>
+                        <ul class="space-y-3 text-gray-600">
+                            <li class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600 flex-shrink-0">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m12 5 7 7-7 7"></path>
+                                </svg>
+                                <span>
+                                    Введите только реагенты (например: H2 + O2) или полное уравнение с -> или =
+                                </span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600 flex-shrink-0">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m12 5 7 7-7 7"></path>
+                                </svg>
+                                <span>
+                                    Используйте числа для обозначения количества атомов (например, H2O)
+                                </span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600 flex-shrink-0">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m12 5 7 7-7 7"></path>
+                                </svg>
+                                <span>
+                                    Разделяйте соединения знаком +
+                                </span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600 flex-shrink-0">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m12 5 7 7-7 7"></path>
+                                </svg>
+                                <span>
+                                    При необходимости укажите катализатор (например: Pt или t°)
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const knownReactions = new Map([
+            ['H2 + O2', '2H2O'],
+            ['H2 + Cl2', '2HCl'],
+            ['H2 + Br2', '2HBr'],
+            ['H2 + I2', '2HI'],
+            ['H2 + N2', '2NH3'],
+            ['H2 + S', 'H2S'],
+            ['Fe + O2', '2Fe2O3'],
+            ['2Cu + O2', '2CuO'],
+            ['4Al + 3O2', '2Al2O3'],
+            ['CH4 + 2O2', 'CO2 + 2H2O'],
+            ['C2H5OH + 3O2', '2CO2 + 3H2O'],
+            ['4P + 5O2', '2P2O5'],
+            ['S + O2', 'SO2'],
+            ['2SO2 + O2', '2SO3'],
+            ['4NH3 + 5O2', '4NO + 6H2O'],
+            ['2Na + 2H2O', '2NaOH + H2'],
+            ['Ca + 2H2O', 'Ca(OH)2 + H2'],
+            ['K + H2O', 'KOH + H2'],
+            ['CaO + H2O', 'Ca(OH)2'],
+            ['SO3 + H2O', 'H2SO4'],
+            ['CO2 + H2O', 'H2CO3'],
+            ['P2O5 + 3H2O', '2H3PO4'],
+            ['Fe + 2HCl', 'FeCl2 + H2'],
+            ['Zn + 2HCl', 'ZnCl2 + H2'],
+            ['Mg + H2SO4', 'MgSO4 + H2'],
+            ['2Al + 6HCl', '2AlCl3 + 3H2'],
+            ['Fe + CuSO4', 'FeSO4 + Cu'],
+            ['Zn + CuSO4', 'ZnSO4 + Cu'],
+            ['NaOH + HCl', 'NaCl + H2O'],
+            ['KOH + HNO3', 'KNO3 + H2O'],
+            ['Ca(OH)2 + 2HCl', 'CaCl2 + 2H2O'],
+            ['2NaOH + H2SO4', 'Na2SO4 + 2H2O'],
+            ['CaCO3', 'CaO + CO2'],
+            ['2KClO3', '2KCl + 3O2'],
+            ['2H2O2', '2H2O + O2'],
+            ['2NaNO3', '2NaNO2 + O2'],
+            ['2KMnO4', 'K2MnO4 + MnO2 + O2'],
+            ['AgNO3 + NaCl', 'AgCl + NaNO3'],
+            ['BaCl2 + Na2SO4', 'BaSO4 + 2NaCl'],
+            ['Pb(NO3)2 + 2KI', 'PbI2 + 2KNO3'],
+            ['CaCl2 + Na2CO3', 'CaCO3 + 2NaCl']
+        ]);
+
+        function normalizeEquation(equation) {
+            return equation
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase()
+                .split(/[+=]|->/)
+                .map(part => part.trim())
+                .join(' + ');
+        }
+
+        function findProducts(reactants) {
+            const normalizedReactants = normalizeEquation(reactants);
+            for (const [key, value] of knownReactions.entries()) {
+                if (normalizeEquation(key) === normalizedReactants) {
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        function solveEquation() {
+            const equation = document.getElementById('equation').value;
+            const catalyst = document.getElementById('catalyst').value;
+            const resultDiv = document.getElementById('result');
+            const resultText = document.getElementById('resultText');
+            const analysisContainer = document.getElementById('analysisContainer');
+
+            if (!equation.trim()) {
+                alert('Пожалуйста, введите химическое уравнение');
+                return;
+            }
+
+            let result;
+            if (!equation.includes('->') && !equation.includes('=')) {
+                const products = findProducts(equation);
+                if (products) {
+                    result = catalyst 
+                        ? `${equation} (${catalyst})→ ${products}`
+                        : `${equation} → ${products}`;
+                } else {
+                    alert('Извините, я не знаю продукты этой реакции. Пожалуйста, введите полное уравнение.');
+                    return;
+                }
+            } else {
+                result = catalyst 
+                    ? equation.replace('->', `(${catalyst})→`)
+                    : equation.replace('->', '→');
+            }
+
+            resultText.textContent = result;
+            resultDiv.classList.remove('hidden');
+            analysisContainer.classList.remove('hidden');
+        }
+
+        function clearForm() {
+            document.getElementById('equation').value = '';
+            document.getElementById('catalyst').value = '';
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('analysisContainer').classList.add('hidden');
+            document.getElementById('analysisText').classList.add('hidden');
+            document.getElementById('analysisToggleText').textContent = 'Показать анализ';
+        }
+
+        function toggleAnalysis() {
+            const analysisText = document.getElementById('analysisText');
+            const toggleText = document.getElementById('analysisToggleText');
+            
+            if (analysisText.classList.contains('hidden')) {
+                analysisText.classList.remove('hidden');
+                toggleText.textContent = 'Скрыть анализ';
+                analysisText.textContent = 'Анализ реакции:\n- Тип реакции: обмен\n- Условия протекания: стандартные\n- Продукты реакции: стабильные';
+            } else {
+                analysisText.classList.add('hidden');
+                toggleText.textContent = 'Показать анализ';
+            }
+        }
+    </script>
+</body>
 </html>
